@@ -1,0 +1,11 @@
+import os
+
+from celery import Celery
+
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+app = Celery("storedel")
+app.config_from_object("django.conf:settings", namespace="CELERY")
+app.conf.imports = (*app.conf.imports, "notifications.tasks")
+app.autodiscover_tasks()

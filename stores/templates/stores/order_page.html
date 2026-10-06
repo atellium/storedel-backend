@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Store Orders</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #17202a;
+      --muted: #687385;
+      --line: #dce2ea;
+      --accent: #0f766e;
+      --accent-strong: #115e59;
+      --danger: #b42318;
+      --warn: #b54708;
+      --ok: #067647;
+      --shadow: 0 10px 24px rgba(23, 32, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 24px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .title p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .auth {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: min(460px, 50vw);
+    }
+
+    .auth input {
+      width: 100%;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.2fr);
+      gap: 1px;
+      background: var(--line);
+      min-height: 0;
+    }
+
+    .pane {
+      background: var(--panel);
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .toolbar select {
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 10px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .summary {
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .list {
+      overflow: auto;
+    }
+
+    .order-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 14px 16px;
+      border: 0;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      text-align: left;
+    }
+
+    .order-row:hover,
+    .order-row.active {
+      background: #eef8f7;
+    }
+
+    .order-number {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .order-meta,
+    .item-meta {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .amount {
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: capitalize;
+      background: #eef2f6;
+      color: #344054;
+    }
+
+    .badge.placed,
+    .badge.preparing {
+      background: #fff7ed;
+      color: var(--warn);
+    }
+
+    .badge.accepted,
+    .badge.ready,
+    .badge.completed {
+      background: #ecfdf3;
+      color: var(--ok);
+    }
+
+    .badge.cancelled,
+    .badge.rejected {
+      background: #fef3f2;
+      color: var(--danger);
+    }
+
+    .detail {
+      overflow: auto;
+      padding: 18px;
+    }
+
+    .empty {
+      padding: 40px 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .section {
+      padding: 16px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section:first-child {
+      padding-top: 0;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .detail-header h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfcfe;
+      min-width: 0;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 18px;
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .item:last-child {
+      border-bottom: 0;
+    }
+
+    .item-name {
+      font-weight: 700;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .status-select {
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 10px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .reason {
+      width: min(100%, 520px);
+      min-height: 72px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+      resize: vertical;
+    }
+
+    .btn {
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 0 12px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .btn:hover {
+      background: var(--accent-strong);
+    }
+
+    .btn.secondary {
+      background: #fff;
+      color: var(--text);
+      border-color: var(--line);
+    }
+
+    .btn.secondary:hover {
+      background: #f8fafc;
+    }
+
+    .message {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .message.error {
+      color: var(--danger);
+    }
+
+    @media (max-width: 920px) {
+      .topbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .auth {
+        min-width: 0;
+      }
+
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .pane {
+        min-height: 420px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell" data-store-slug="{{ store_slug }}">
+    <header class="topbar">
+      <div class="title">
+        <h1>Store Orders</h1>
+        <p id="storeLabel">{{ store_slug }}</p>
+      </div>
+      <div class="auth">
+        <input id="tokenInput" type="password" autocomplete="off" placeholder="Bearer token, optional for session login">
+        <button class="btn secondary" id="saveTokenBtn" type="button">Save</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="pane">
+        <div class="toolbar">
+          <select id="statusFilter" aria-label="Filter by status">
+            <option value="">All orders</option>
+            <option value="placed">Placed</option>
+            <option value="accepted">Accepted</option>
+            <option value="preparing">Preparing</option>
+            <option value="ready">Ready</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="rejected">Rejected</option>
+          </select>
+          <button class="btn secondary" id="refreshBtn" type="button">Refresh</button>
+          <span class="summary" id="summary">Loading...</span>
+        </div>
+        <div class="list" id="orderList"></div>
+      </section>
+
+      <section class="pane">
+        <div class="detail" id="orderDetail">
+          <div class="empty">Select an order to view details.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const state = {
+      storeSlug: document.querySelector(".shell").dataset.storeSlug,
+      orders: [],
+      selectedOrderId: null,
+      token: localStorage.getItem("storedelAccessToken") || "",
+    };
+
+    const els = {
+      tokenInput: document.getElementById("tokenInput"),
+      saveTokenBtn: document.getElementById("saveTokenBtn"),
+      statusFilter: document.getElementById("statusFilter"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      summary: document.getElementById("summary"),
+      list: document.getElementById("orderList"),
+      detail: document.getElementById("orderDetail"),
+      storeLabel: document.getElementById("storeLabel"),
+    };
+
+    els.tokenInput.value = state.token;
+
+    function money(value) {
+      return `Rs. ${Number(value || 0).toLocaleString("en-IN")}`;
+    }
+
+    function getCookie(name) {
+      return document.cookie
+        .split(";")
+        .map((item) => item.trim())
+        .find((item) => item.startsWith(`${name}=`))
+        ?.split("=")[1] || "";
+    }
+
+    function headers() {
+      const result = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+      };
+      if (state.token) {
+        result.Authorization = `Bearer ${state.token}`;
+      }
+      const csrf = getCookie("csrftoken");
+      if (csrf) {
+        result["X-CSRFToken"] = csrf;
+      }
+      return result;
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        credentials: "same-origin",
+        ...options,
+        headers: {
+          ...headers(),
+          ...(options.headers || {}),
+        },
+      });
+      const text = await response.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!response.ok) {
+        const message = data?.detail || data?.status || JSON.stringify(data) || "Request failed";
+        throw new Error(message);
+      }
+      return data;
+    }
+
+    function setMessage(message, isError = false) {
+      els.summary.textContent = message;
+      els.summary.classList.toggle("error", isError);
+    }
+
+    async function loadOrders() {
+      setMessage("Loading...");
+      const params = new URLSearchParams({ page_size: "100" });
+      if (els.statusFilter.value) {
+        params.set("status", els.statusFilter.value);
+      }
+      const data = await api(`/api/stores/my/${state.storeSlug}/orders/?${params}`);
+      state.orders = data.results || [];
+      if (!state.orders.some((order) => order.id === state.selectedOrderId)) {
+        state.selectedOrderId = state.orders[0]?.id || null;
+      }
+      renderList(data.pagination);
+      renderDetail();
+      setMessage(`${data.count || 0} orders`);
+    }
+
+    function renderList() {
+      if (!state.orders.length) {
+        els.list.innerHTML = `<div class="empty">No orders found.</div>`;
+        return;
+      }
+      els.list.innerHTML = state.orders.map((order) => `
+        <button class="order-row ${order.id === state.selectedOrderId ? "active" : ""}" type="button" data-id="${order.id}">
+          <span>
+            <span class="order-number">#${order.order_number}</span>
+            <span class="order-meta">${order.customer?.full_name || "Customer"} - ${order.customer?.phone || ""}</span>
+            <span class="order-meta">${order.item_count} items - ${new Date(order.created_at).toLocaleString()}</span>
+          </span>
+          <span>
+            <span class="amount">${money(order.total_amount)}</span>
+            <span class="badge ${order.status}">${order.status}</span>
+          </span>
+        </button>
+      `).join("");
+    }
+
+    function selectedOrder() {
+      return state.orders.find((order) => order.id === state.selectedOrderId);
+    }
+
+    function renderDetail() {
+      const order = selectedOrder();
+      if (!order) {
+        els.detail.innerHTML = `<div class="empty">Select an order to view details.</div>`;
+        return;
+      }
+
+      els.storeLabel.textContent = `${order.store.name} - ${order.store.slug}`;
+      els.detail.innerHTML = `
+        <div class="section">
+          <div class="detail-header">
+            <div>
+              <h2>#${order.order_number}</h2>
+              <p class="order-meta">${new Date(order.created_at).toLocaleString()}</p>
+            </div>
+            <span class="badge ${order.status}">${order.status}</span>
+          </div>
+        </div>
+
+        <div class="section grid">
+          <div class="metric"><span>Total</span><strong>${money(order.total_amount)}</strong></div>
+          <div class="metric"><span>Items</span><strong>${order.item_count}</strong></div>
+          <div class="metric"><span>Units</span><strong>${order.total_units}</strong></div>
+        </div>
+
+        <div class="section">
+          <strong>${order.customer?.full_name || "Customer"}</strong>
+          <p class="order-meta">${order.customer?.phone || ""}${order.customer?.email ? ` - ${order.customer.email}` : ""}</p>
+          ${order.customer_note ? `<p>${order.customer_note}</p>` : ""}
+        </div>
+
+        <div class="section">
+          <div class="actions">
+            <select class="status-select" id="statusSelect" aria-label="Order status">
+              ${["placed", "accepted", "preparing", "ready", "completed", "cancelled", "rejected"].map((status) => `
+                <option value="${status}" ${status === order.status ? "selected" : ""}>${status}</option>
+              `).join("")}
+            </select>
+            <button class="btn" id="updateStatusBtn" type="button">Update Status</button>
+          </div>
+          <p class="message" id="detailMessage"></p>
+          <textarea class="reason" id="reasonInput" placeholder="Reason for cancelled or rejected orders">${order.cancellation_reason || ""}</textarea>
+        </div>
+
+        <div class="section">
+          ${order.items.map((item) => `
+            <div class="item">
+              <div>
+                <div class="item-name">${item.product_name}</div>
+                <div class="item-meta">${item.variant_name || item.selection_type} - Qty ${item.quantity}</div>
+              </div>
+              <strong>${money(item.line_total)}</strong>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    async function updateSelectedStatus() {
+      const order = selectedOrder();
+      if (!order) {
+        return;
+      }
+      const message = document.getElementById("detailMessage");
+      const status = document.getElementById("statusSelect").value;
+      const reason = document.getElementById("reasonInput").value;
+      const payload = { status };
+      if (reason || status === "cancelled" || status === "rejected") {
+        payload.cancellation_reason = reason;
+      }
+      message.textContent = "Updating...";
+      message.classList.remove("error");
+      try {
+        const data = await api(
+          `/api/stores/my/${state.storeSlug}/orders/${order.id}/`,
+          { method: "PATCH", body: JSON.stringify(payload) },
+        );
+        const index = state.orders.findIndex((item) => item.id === order.id);
+        if (index >= 0) {
+          state.orders[index] = data.order;
+        }
+        renderList();
+        renderDetail();
+        document.getElementById("detailMessage").textContent = "Updated.";
+      } catch (error) {
+        message.textContent = error.message;
+        message.classList.add("error");
+      }
+    }
+
+    els.saveTokenBtn.addEventListener("click", () => {
+      state.token = els.tokenInput.value.trim();
+      localStorage.setItem("storedelAccessToken", state.token);
+      loadOrders().catch((error) => setMessage(error.message, true));
+    });
+
+    els.refreshBtn.addEventListener("click", () => {
+      loadOrders().catch((error) => setMessage(error.message, true));
+    });
+
+    els.statusFilter.addEventListener("change", () => {
+      loadOrders().catch((error) => setMessage(error.message, true));
+    });
+
+    els.list.addEventListener("click", (event) => {
+      const row = event.target.closest("[data-id]");
+      if (!row) {
+        return;
+      }
+      state.selectedOrderId = row.dataset.id;
+      renderList();
+      renderDetail();
+    });
+
+    els.detail.addEventListener("click", (event) => {
+      if (event.target.id === "updateStatusBtn") {
+        updateSelectedStatus();
+      }
+    });
+
+    loadOrders().catch((error) => setMessage(error.message, true));
+  </script>
+</body>
+</html>
