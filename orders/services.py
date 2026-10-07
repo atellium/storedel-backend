@@ -371,6 +371,10 @@ def update_order(user, order_number, data):
     if "payment_type" in data:
         order.payment_type = data["payment_type"]
 
+    if "delivery_fee" in data:
+        order.delivery_fee = data["delivery_fee"]
+        order.total_amount = order.calculate_total()
+
     save_order(order)
     return order
 
