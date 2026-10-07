@@ -96,7 +96,7 @@ def store_list(request):
     query_serializer.is_valid(raise_exception=True)
     filters = query_serializer.validated_data
 
-    stores = Store.objects.select_related("city", "city__state")
+    stores = Store.objects.select_related("city", "city__state", "settings")
     stores = stores.filter(is_active=True)
     if filters.get("search"):
         search = filters["search"]
@@ -134,7 +134,7 @@ def nearby_store_list(request):
     lng = filters["lng"]
     geohash = pgh.encode(lat, lng, precision=GEOHASH_NEARBY_PRECISION)
 
-    stores = Store.objects.select_related("city", "city__state").filter(
+    stores = Store.objects.select_related("city", "city__state", "settings").filter(
         is_active=True,
         latitude__isnull=False,
         longitude__isnull=False,
@@ -164,7 +164,7 @@ def my_business_list(request):
     query_serializer.is_valid(raise_exception=True)
     filters = query_serializer.validated_data
 
-    stores = Store.objects.select_related("city", "city__state").filter(
+    stores = Store.objects.select_related("city", "city__state", "settings").filter(
         owner=request.user,
     )
 
@@ -282,6 +282,7 @@ def saved_store_list(request):
         "store",
         "store__city",
         "store__city__state",
+        "store__settings",
     ).filter(
         user=request.user,
         store__is_active=True,

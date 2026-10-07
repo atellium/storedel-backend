@@ -214,6 +214,10 @@ class OrderUpdateSerializer(serializers.Serializer):
         required=False,
         choices=Order.PaymentType.choices,
     )
+    delivery_fee = serializers.IntegerField(
+        required=False,
+        min_value=0,
+    )
 
     def validate_address_id(self, value):
         if value in ("", None):

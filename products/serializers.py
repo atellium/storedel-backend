@@ -240,6 +240,7 @@ class StoreProductListQuerySerializer(serializers.Serializer):
     )
     category = serializers.SlugField(required=False, max_length=150)
     is_custom_quantity = serializers.BooleanField(required=False)
+    is_featured = serializers.BooleanField(required=False)
     page = serializers.IntegerField(required=False, default=1, min_value=1)
     page_size = serializers.IntegerField(
         required=False,

@@ -77,6 +77,11 @@ def list_store_products(store, filters, active_only=True):
             allow_custom_quantity=filters["is_custom_quantity"],
         )
 
+    if "is_featured" in filters:
+        products = products.filter(
+            is_featured=filters["is_featured"],
+        )
+
     if filters.get("search"):
         search = filters["search"]
         products = products.filter(

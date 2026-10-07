@@ -492,6 +492,8 @@ class StoreListSerializer(StoreDetailSerializer):
             "latitude",
             "longitude",
             "cover_image",
+            "current_status",
+            "delivery_status",
             "is_active",
             "published_at",
             "updated_at",
