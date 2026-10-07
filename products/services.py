@@ -67,9 +67,9 @@ def list_store_products(store, filters, active_only=True):
     )
 
     if filters.get("category"):
+        category_ids = get_category_with_descendant_ids(filters["category"])
         products = products.filter(
-            categories__slug=filters["category"],
-            categories__is_active=True,
+            categories__id__in=category_ids,
         )
 
     if "is_custom_quantity" in filters:
@@ -88,6 +88,30 @@ def list_store_products(store, filters, active_only=True):
         )
 
     return products.distinct().order_by("sort_order", "-created_at", "id")
+
+
+def get_category_with_descendant_ids(category_slug):
+    category = ProductCategory.objects.filter(
+        slug=category_slug,
+        is_active=True,
+    ).first()
+    if category is None:
+        raise NotFound("Category not found.")
+
+    category_ids = [category.id]
+    parent_ids = [category.id]
+
+    while parent_ids:
+        child_ids = list(
+            ProductCategory.objects.filter(
+                parent_id__in=parent_ids,
+                is_active=True,
+            ).values_list("id", flat=True)
+        )
+        category_ids.extend(child_ids)
+        parent_ids = child_ids
+
+    return category_ids
 
 
 def get_category_with_related(category_slug):
