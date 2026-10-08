@@ -55,6 +55,12 @@ def _get_category_response_data(filters, request):
     return category_data
 
 
+def _remove_absent_boolean_filters(filters, query_params):
+    for field in ("is_custom_quantity", "is_featured"):
+        if field not in query_params:
+            filters.pop(field, None)
+
+
 @api_view(["GET", "POST"])
 @permission_classes([AllowAny])
 def store_product_list(request, store_slug):
@@ -77,6 +83,7 @@ def store_product_list(request, store_slug):
     query_serializer = StoreProductListQuerySerializer(data=request.query_params)
     query_serializer.is_valid(raise_exception=True)
     filters = query_serializer.validated_data
+    _remove_absent_boolean_filters(filters, request.query_params)
 
     store = Store.objects.filter(slug=store_slug, is_active=True).first()
     if store is None:
@@ -138,6 +145,7 @@ def my_store_product_list(request, store_slug):
     query_serializer = StoreProductListQuerySerializer(data=request.query_params)
     query_serializer.is_valid(raise_exception=True)
     filters = query_serializer.validated_data
+    _remove_absent_boolean_filters(filters, request.query_params)
 
     store = services.get_user_store(request.user, store_slug)
     products = services.list_store_products(store, filters, active_only=False)

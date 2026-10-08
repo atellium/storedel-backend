@@ -191,6 +191,32 @@ class MyStoreProductListTests(APITestCase):
             [child.slug, "coffee"],
         )
 
+    def test_public_store_product_list_parent_category_includes_child_products(self):
+        parent = ProductCategory.objects.create(
+            name="Grocery",
+            label="Grocery",
+            slug="grocery",
+        )
+        child = ProductCategory.objects.create(
+            parent=parent,
+            name="Atta",
+            label="Atta",
+            slug="atta",
+        )
+        self.active_product.categories.add(child)
+        self.store.is_active = True
+        self.store.save(update_fields=["is_active"])
+        url = reverse(
+            "products:store-product-list",
+            kwargs={"store_slug": self.store.slug},
+        )
+
+        response = self.client.get(url, {"category": parent.slug})
+
+        self.assertEqual(response.status_code, 200)
+        names = {item["name"] for item in response.data["results"]}
+        self.assertEqual(names, {"Active Product"})
+
     def test_public_product_detail_by_slug_returns_active_product(self):
         self.store.is_active = True
         self.store.save(update_fields=["is_active"])
