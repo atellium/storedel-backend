@@ -1,13 +1,25 @@
 from datetime import datetime, timedelta
+from io import BytesIO
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.utils import timezone
 from django.urls import reverse
+from PIL import Image
 from rest_framework.test import APITestCase
 
 from stores.models import SavedStore, Store, StoreSettings
 from stores.serializers import StoreDetailSerializer
+
+
+def image_upload(name="cover.jpg"):
+    content = BytesIO()
+    Image.new("RGB", (20, 20), color="blue").save(content, format="JPEG")
+    content.seek(0)
+    return SimpleUploadedFile(name, content.read(), content_type="image/jpeg")
 
 
 class StoreListTests(APITestCase):
@@ -44,6 +56,24 @@ class StoreListTests(APITestCase):
                 "previous_page": 1,
             },
         )
+
+
+class StoreImagePathTests(APITestCase):
+    def test_cover_image_is_saved_under_single_stores_cover_prefix(self):
+        with TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                store = Store.objects.create(
+                    name="Image Store",
+                    address="Main Road",
+                    cover_image=image_upload(),
+                )
+
+        self.assertRegex(
+            store.cover_image.name,
+            r"^stores/cover/[0-9a-f]{32}\.webp$",
+        )
+        self.assertNotIn("stores/stores", store.cover_image.name)
+
 
 
 class StoreDetailTests(APITestCase):
