@@ -88,7 +88,7 @@ class Store(TimestampedModel):
                 quality=85,
                 convert_to_webp=True,
             )
-            processed_image.name = f"stores/cover/{uuid.uuid4().hex}.webp"
+            processed_image.name = f"cover/{uuid.uuid4().hex}.webp"
             self.cover_image = processed_image
             if update_fields is not None:
                 kwargs["update_fields"] = set(update_fields) | {"cover_image"}
