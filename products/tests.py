@@ -1,10 +1,23 @@
+from io import BytesIO
+from tempfile import TemporaryDirectory
+
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from django.urls import reverse
+from PIL import Image
 from rest_framework.test import APITestCase
 
 from carts.models import Cart, CartItem
 from products.models import Product, ProductCategory, ProductVariant
 from stores.models import Store
+
+
+def image_upload(name="category.jpg"):
+    content = BytesIO()
+    Image.new("RGB", (20, 20), color="green").save(content, format="JPEG")
+    content.seek(0)
+    return SimpleUploadedFile(name, content.read(), content_type="image/jpeg")
 
 
 class ProductCategoryFlatListTests(APITestCase):
@@ -23,6 +36,22 @@ class ProductCategoryFlatListTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["id"], category.pk)
         self.assertEqual(response.data["results"][0]["slug"], category.slug)
+
+    def test_category_image_is_saved_under_single_category_prefix(self):
+        with TemporaryDirectory() as media_root:
+            with override_settings(MEDIA_ROOT=media_root):
+                category = ProductCategory.objects.create(
+                    name="Snacks",
+                    label="Snacks",
+                    slug="snacks",
+                    image=image_upload(),
+                )
+
+        self.assertRegex(
+            category.image.name,
+            r"^product_categories/[0-9a-f]{32}\.jpg$",
+        )
+        self.assertNotIn("product_categories/product_categories", category.image.name)
 
 
 class MyStoreProductListTests(APITestCase):
