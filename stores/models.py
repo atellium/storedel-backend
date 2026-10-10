@@ -21,7 +21,7 @@ class Store(TimestampedModel):
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     code = models.CharField(max_length=10, unique=True, blank=True, default="")
     host_name = models.CharField(max_length=100, unique=True, null=True, blank=True, default="") # Hostname(blank=True, default="")
-    
+
     # Location
     address = models.CharField(max_length=300)
     locality = models.CharField(max_length=100, blank=True, default="")
@@ -67,6 +67,14 @@ class Store(TimestampedModel):
 
     # Schedule
     store_hours = models.JSONField(blank=True, default=dict)
+
+    # Catalog
+    categories = models.ManyToManyField(
+        "products.ProductCategory",
+        through="stores.StoreCategory",
+        related_name="stores",
+        blank=True,
+    )
 
     #Status 
     is_active = models.BooleanField(default=False, db_index=True)
@@ -118,6 +126,39 @@ class Store(TimestampedModel):
             if update_fields is not None:
                 kwargs["update_fields"] = set(update_fields) | {"slug"}
         return super().save(*args, **kwargs)
+
+
+class StoreCategory(TimestampedModel):
+    store = models.ForeignKey(
+        Store,
+        on_delete=models.CASCADE,
+        related_name="category_relations",
+    )
+    category = models.ForeignKey(
+        "products.ProductCategory",
+        on_delete=models.CASCADE,
+        related_name="store_relations",
+    )
+    sort_order = models.PositiveIntegerField(
+        default=0,
+        db_index=True,
+    )
+
+    class Meta:
+        db_table = "store_categories"
+        ordering = (
+            "sort_order",
+            "category__name",
+        )
+        constraints = [
+            models.UniqueConstraint(
+                fields=["store", "category"],
+                name="unique_store_category",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.store} - {self.category}"
 
 
 class SavedStore(TimestampedModel):
