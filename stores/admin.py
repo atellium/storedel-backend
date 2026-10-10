@@ -1,6 +1,18 @@
 from django.contrib import admin
 
-from .models import Store, StoreSettings
+from .models import Store, StoreCategory, StoreSettings
+
+
+class StoreCategoryInline(admin.TabularInline):
+    model = StoreCategory
+    extra = 1
+    autocomplete_fields = (
+        "category",
+    )
+    ordering = (
+        "sort_order",
+        "category__name",
+    )
 
 
 @admin.register(Store)
@@ -50,6 +62,10 @@ class StoreAdmin(admin.ModelAdmin):
         "owner",
         "city",
     )
+
+    inlines = [
+        StoreCategoryInline,
+    ]
 
     prepopulated_fields = {
         "slug": ("name",),

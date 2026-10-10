@@ -324,7 +324,7 @@ class StoreDetailSerializer(serializers.ModelSerializer):
     city = serializers.SerializerMethodField()
     cover_image = serializers.SerializerMethodField()
     categories = serializers.SerializerMethodField()
-    category_grid = serializers.SerializerMethodField()
+    featured_categories = serializers.SerializerMethodField()
     current_status = serializers.SerializerMethodField()
     delivery_status = serializers.SerializerMethodField()
 
@@ -349,7 +349,7 @@ class StoreDetailSerializer(serializers.ModelSerializer):
             "website",
             "cover_image",
             "categories",
-            "category_grid",
+            "featured_categories",
             "store_hours",
             "current_status",
             "delivery_status",
@@ -397,74 +397,28 @@ class StoreDetailSerializer(serializers.ModelSerializer):
             context=self.context,
         ).data
 
-    def get_category_grid(self, obj):
-        available_categories = (
-            ProductCategory.objects.filter(
-                products__store=obj,
-                products__is_active=True,
-                is_active=True,
+    def get_featured_categories(self, obj):
+        category_relations = (
+            obj.category_relations
+            .select_related("category")
+            .filter(category__is_active=True)
+            .order_by(
+                "sort_order",
+                "category__name",
+                "category_id",
             )
-            .select_related("parent", "parent__parent")
-            .distinct()
         )
+        categories = []
+        for relation in category_relations:
+            category = relation.category
+            category.sort_order = relation.sort_order
+            categories.append(category)
 
-        root_ids = set()
-        child_ids_by_root = {}
-        for category in available_categories:
-            if category.parent_id is None:
-                root_ids.add(category.id)
-                continue
-
-            if category.parent.parent_id is None:
-                root = category.parent
-                child = category
-            else:
-                root = category.parent.parent
-                child = category.parent
-
-            if not root.is_active or not child.is_active:
-                continue
-
-            root_ids.add(root.id)
-            child_ids_by_root.setdefault(root.id, set()).add(child.id)
-
-        if not root_ids:
-            return []
-
-        child_ids = {
-            child_id
-            for ids in child_ids_by_root.values()
-            for child_id in ids
-        }
-        children = ProductCategory.objects.filter(
-            parent_id__in=root_ids,
-            id__in=child_ids,
-            is_active=True,
-        ).order_by("sort_order", "name", "id")
-
-        children_by_root = {}
-        for child in children:
-            children_by_root.setdefault(child.parent_id, []).append(child)
-
-        grid = []
-        roots = ProductCategory.objects.filter(
-            id__in=root_ids,
-            is_active=True,
-            parent__isnull=True,
-        ).order_by("sort_order", "name", "id")
-        for root in roots:
-            root_data = StoreProductCategorySerializer(
-                root,
-                context=self.context,
-            ).data
-            root_data["children"] = StoreProductCategorySerializer(
-                children_by_root.get(root.id, []),
-                many=True,
-                context=self.context,
-            ).data
-            grid.append(root_data)
-
-        return grid
+        return StoreProductCategorySerializer(
+            categories,
+            many=True,
+            context=self.context,
+        ).data
 
     def get_current_status(self, obj):
         return get_store_current_status(obj.store_hours)
