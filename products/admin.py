@@ -146,6 +146,34 @@ def format_total_measurement(obj):
 # ============================================================
 
 
+class ParentWithChildrenListFilter(
+    admin.SimpleListFilter
+):
+    title = "parent"
+    parameter_name = "parent__id__exact"
+
+    def lookups(self, request, model_admin):
+        categories = (
+            ProductCategory.objects
+            .filter(children__isnull=False)
+            .distinct()
+            .order_by("sort_order", "name")
+        )
+
+        return [
+            (category.pk, str(category))
+            for category in categories
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(
+                parent_id=self.value()
+            )
+
+        return queryset
+
+
 @admin.register(ProductCategory)
 class ProductCategoryAdmin(admin.ModelAdmin):
 
@@ -164,7 +192,12 @@ class ProductCategoryAdmin(admin.ModelAdmin):
         "is_active",
         "is_featured",
         "is_searchable",
-        "parent",
+        ParentWithChildrenListFilter,
+    )
+
+    list_editable = (
+        "sort_order",
+        "is_searchable",
     )
 
     search_fields = (
@@ -396,7 +429,7 @@ class ProductVariantAdminForm(forms.ModelForm):
 
             field.help_text = (
                 "Select the selling/package unit, "
-                "for example Pack, Box, Jar, Can or Carton."
+                "for example Pcs, Pack, Box, Jar, Can or Carton."
             )
 
     def clean(self):
