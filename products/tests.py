@@ -1,13 +1,15 @@
 from io import BytesIO
 from tempfile import TemporaryDirectory
 
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
 from rest_framework.test import APITestCase
 
+from products.admin import ParentWithChildrenListFilter, ProductCategoryAdmin
 from carts.models import Cart, CartItem
 from products.models import Product, ProductCategory, ProductVariant
 from stores.models import Store
@@ -18,6 +20,53 @@ def image_upload(name="category.jpg"):
     Image.new("RGB", (20, 20), color="green").save(content, format="JPEG")
     content.seek(0)
     return SimpleUploadedFile(name, content.read(), content_type="image/jpeg")
+
+
+class ProductCategoryAdminTests(TestCase):
+    def test_parent_filter_only_lists_categories_with_children(self):
+        parent = ProductCategory.objects.create(
+            name="Beverage",
+            label="Beverages",
+            slug="beverages",
+        )
+        child = ProductCategory.objects.create(
+            parent=parent,
+            name="Tea",
+            label="Tea",
+            slug="tea",
+        )
+        leaf = ProductCategory.objects.create(
+            name="Snacks",
+            label="Snacks",
+            slug="snacks",
+        )
+        request = RequestFactory().get("/")
+        model_admin = ProductCategoryAdmin(
+            ProductCategory,
+            AdminSite(),
+        )
+
+        category_filter = ParentWithChildrenListFilter(
+            request,
+            {},
+            ProductCategory,
+            model_admin,
+        )
+
+        self.assertEqual(
+            list(category_filter.lookups(request, model_admin)),
+            [
+                (parent.pk, str(parent)),
+            ],
+        )
+        self.assertNotIn(
+            (child.pk, str(child)),
+            category_filter.lookups(request, model_admin),
+        )
+        self.assertNotIn(
+            (leaf.pk, str(leaf)),
+            category_filter.lookups(request, model_admin),
+        )
 
 
 class ProductCategoryFlatListTests(APITestCase):
@@ -543,6 +592,35 @@ class MyStoreProductListTests(APITestCase):
             2,
         )
         self.assertIn("cost_price", response.data["results"][0])
+
+    def test_owner_can_create_none_measurement_piece_variant(self):
+        self.client.force_authenticate(self.owner)
+        url = reverse(
+            "products:my-store-product-variant-list",
+            kwargs={
+                "store_slug": self.store.slug,
+                "product_id": self.active_product.pk,
+            },
+        )
+
+        response = self.client.post(
+            url,
+            {
+                "variants": [
+                    {
+                        "value": None,
+                        "unit": ProductVariant.Unit.PIECE,
+                        "pack_count": 1,
+                        "price": 50,
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["results"][0]["unit"], ProductVariant.Unit.PIECE)
+        self.assertEqual(response.data["results"][0]["name"], "1 Pc")
 
     def test_owner_can_bulk_update_and_create_product_variants(self):
         existing_variant = ProductVariant.objects.create(

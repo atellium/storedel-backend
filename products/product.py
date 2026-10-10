@@ -504,8 +504,9 @@ class ProductVariant(TimestampedModel):
     }
 
     # NONE means there is no numeric content/measurement value; only the
-    # selling/package form matters: 1 Pack, 2 Jars, 1 Can, etc.
+    # selling/package form matters: 1 Pc, 1 Pack, 2 Jars, 1 Can, etc.
     NONE_UNITS = {
+        Unit.PIECE,
         Unit.PACK,
         Unit.BOX,
         Unit.CARTON,
@@ -771,8 +772,8 @@ class ProductVariant(TimestampedModel):
 
             if self.unit not in self.NONE_UNITS:
                 errors["unit"] = (
-                    "Select a valid selling/package unit such as Pack, Box, "
-                    "Jar, Can or Carton."
+                    "Select a valid selling/package unit such as Pcs, Pack, "
+                    "Box, Jar, Can or Carton."
                 )
 
         if self.pack_count < 1:
