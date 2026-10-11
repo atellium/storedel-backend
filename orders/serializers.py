@@ -1,14 +1,10 @@
 import uuid
 
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from locations.serializers import AddressSerializer
 from orders.models import Order, OrderItem
-
-
-User = get_user_model()
-
+from stores.models import StoreCustomer
 
 class OrderItemSerializer(serializers.ModelSerializer):
     total_measurement_value = serializers.IntegerField(read_only=True, allow_null=True)
@@ -121,22 +117,58 @@ class StoreOrderSerializer(OrderSerializer):
 
 
 class StoreCustomerSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source="customer_id", read_only=True)
+    full_name = serializers.CharField(source="customer.full_name", read_only=True)
+    phone = serializers.CharField(source="customer.phone", read_only=True)
+    email = serializers.EmailField(source="customer.email", read_only=True)
     order_count = serializers.IntegerField(read_only=True)
     last_order_at = serializers.DateTimeField(read_only=True)
     total_amount = serializers.IntegerField(read_only=True)
 
     class Meta:
-        model = User
+        model = StoreCustomer
         fields = (
             "id",
             "full_name",
             "phone",
             "email",
+            "is_active",
+            "scheduled_min_order_amount",
+            "scheduled_delivery_charge",
+            "express_min_order_amount",
+            "express_delivery_charge",
+            "pickup_min_order_amount",
+            "cancellation_percentage",
+            "settings",
+            "note",
             "order_count",
             "last_order_at",
             "total_amount",
+            "created_at",
+            "updated_at",
         )
         read_only_fields = fields
+
+
+class StoreCustomerUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StoreCustomer
+        fields = (
+            "is_active",
+            "scheduled_min_order_amount",
+            "scheduled_delivery_charge",
+            "express_min_order_amount",
+            "express_delivery_charge",
+            "pickup_min_order_amount",
+            "cancellation_percentage",
+            "settings",
+            "note",
+        )
+
+    def validate(self, attrs):
+        if not attrs:
+            raise serializers.ValidationError("Provide at least one field to update.")
+        return attrs
 
 
 class OrderCreateFromCartSerializer(serializers.Serializer):

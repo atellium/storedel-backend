@@ -2,7 +2,11 @@ import uuid
 
 import pygeohash as pgh
 from django.conf import settings
-from django.core.validators import FileExtensionValidator, MinValueValidator
+from django.core.validators import (
+    FileExtensionValidator,
+    MaxValueValidator,
+    MinValueValidator,
+)
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -494,5 +498,117 @@ class StoreSettings(models.Model):
 
     def __str__(self):
         return f"Settings for {self.store}"
+
+
+class StoreCustomer(TimestampedModel):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    store = models.ForeignKey(
+        "stores.Store",
+        on_delete=models.CASCADE,
+        related_name="store_customers",
+    )
+
+    customer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="store_customers",
+    )
+
+    # ============================================================
+    # CUSTOMER OVERRIDES
+    #
+    # Null means the store-wide setting should be used. Zero is a
+    # valid explicit override for no minimum or free delivery.
+    # ============================================================
+
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+    )
+
+    scheduled_min_order_amount = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Scheduled Delivery Minimum Order Amount",
+    )
+
+    scheduled_delivery_charge = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Scheduled Delivery Charge",
+    )
+
+    express_min_order_amount = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Express Delivery Minimum Order Amount",
+    )
+
+    express_delivery_charge = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Express Delivery Charge",
+    )
+
+    pickup_min_order_amount = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Pickup Minimum Order Amount",
+    )
+
+    cancellation_percentage = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(0),
+            MaxValueValidator(100),
+        ],
+        verbose_name="Cancellation Percentage",
+    )
+
+    settings = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Additional customer-specific store settings.",
+    )
+
+    note = models.CharField(
+        max_length=500,
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "store_customers"
+        ordering = (
+            "store__name",
+            "customer__phone",
+            "id",
+        )
+        constraints = [
+            models.UniqueConstraint(
+                fields=["store", "customer"],
+                name="unique_store_customer",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=[
+                    "store",
+                    "customer",
+                    "is_active",
+                ],
+                name="store_customer_idx",
+            ),
+        ]
+        verbose_name = "Store Customer"
+        verbose_name_plural = "Store Customers"
+
+    def __str__(self):
+        return f"{self.customer} at {self.store}"
 
 
