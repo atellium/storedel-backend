@@ -17,6 +17,11 @@ urlpatterns = [
         name="my-store-customer-list",
     ),
     path(
+        "stores/my/<slug:store_slug>/customers/<uuid:customer_id>/",
+        views.my_store_customer_detail,
+        name="my-store-customer-detail",
+    ),
+    path(
         "stores/my/<slug:store_slug>/orders/<str:order_number>/",
         views.my_store_order_detail,
         name="my-store-order-detail",

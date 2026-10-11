@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from carts.models import Cart, CartItem
 from orders.models import Order, OrderItem
 from products.models import Product, ProductVariant
-from stores.models import Store
+from stores.models import Store, StoreCustomer
 
 
 class MyStoreOrderTests(APITestCase):
@@ -132,6 +132,14 @@ class MyStoreOrderTests(APITestCase):
             subtotal=200,
             total_amount=200,
         )
+        StoreCustomer.objects.create(
+            store=self.store,
+            customer=self.customer,
+        )
+        StoreCustomer.objects.create(
+            store=self.store,
+            customer=second_customer,
+        )
         self.client.force_authenticate(self.owner)
         url = reverse(
             "orders:my-store-customer-list",
@@ -150,6 +158,85 @@ class MyStoreOrderTests(APITestCase):
         self.assertEqual(customers[str(self.customer.id)]["total_amount"], 150)
         self.assertEqual(customers[str(second_customer.id)]["order_count"], 1)
         self.assertEqual(customers[str(second_customer.id)]["total_amount"], 75)
+
+    def test_owner_can_get_store_customer_detail(self):
+        StoreCustomer.objects.create(
+            store=self.store,
+            customer=self.customer,
+            express_delivery_charge=20,
+        )
+        self.client.force_authenticate(self.owner)
+        url = reverse(
+            "orders:my-store-customer-detail",
+            kwargs={
+                "store_slug": self.store.slug,
+                "customer_id": self.customer.id,
+            },
+        )
+
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["customer"]["id"], str(self.customer.id))
+        self.assertEqual(response.data["customer"]["phone"], self.customer.phone)
+        self.assertEqual(response.data["customer"]["express_delivery_charge"], 20)
+
+    def test_owner_can_update_store_customer_settings(self):
+        StoreCustomer.objects.create(
+            store=self.store,
+            customer=self.customer,
+        )
+        self.client.force_authenticate(self.owner)
+        url = reverse(
+            "orders:my-store-customer-detail",
+            kwargs={
+                "store_slug": self.store.slug,
+                "customer_id": self.customer.id,
+            },
+        )
+
+        response = self.client.patch(
+            url,
+            {
+                "scheduled_min_order_amount": 300,
+                "express_delivery_charge": 10,
+                "cancellation_percentage": 15,
+                "note": "Priority customer",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        store_customer = StoreCustomer.objects.get(
+            store=self.store,
+            customer=self.customer,
+        )
+        self.assertEqual(store_customer.scheduled_min_order_amount, 300)
+        self.assertEqual(store_customer.express_delivery_charge, 10)
+        self.assertEqual(store_customer.cancellation_percentage, 15)
+        self.assertEqual(store_customer.note, "Priority customer")
+
+    def test_non_owner_cannot_update_store_customer(self):
+        StoreCustomer.objects.create(
+            store=self.store,
+            customer=self.customer,
+        )
+        self.client.force_authenticate(self.other_owner)
+        url = reverse(
+            "orders:my-store-customer-detail",
+            kwargs={
+                "store_slug": self.store.slug,
+                "customer_id": self.customer.id,
+            },
+        )
+
+        response = self.client.patch(
+            url,
+            {"express_delivery_charge": 10},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 404)
 
     def test_non_owner_cannot_list_store_customers(self):
         self.client.force_authenticate(self.other_owner)
@@ -462,5 +549,11 @@ class MyStoreOrderTests(APITestCase):
             Order.FullfillmentType.SCHEDULED_DELIVERY,
         )
 
+        self.assertTrue(
+            StoreCustomer.objects.filter(
+                store=self.store,
+                customer=self.customer,
+            ).exists()
+        )
         on_commit.assert_called_once()
         send_order_push_notification.assert_called_once_with(str(order.id))

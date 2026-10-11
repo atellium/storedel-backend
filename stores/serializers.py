@@ -4,7 +4,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from products.models import ProductCategory
-from stores.models import SavedStore, Store, StoreSettings
+from stores.models import SavedStore, Store, StoreCustomer, StoreSettings
 
 
 DAY_KEYS = (
@@ -327,6 +327,8 @@ class StoreDetailSerializer(serializers.ModelSerializer):
     featured_categories = serializers.SerializerMethodField()
     current_status = serializers.SerializerMethodField()
     delivery_status = serializers.SerializerMethodField()
+    fssai = serializers.SerializerMethodField()
+    gst = serializers.SerializerMethodField()
 
     class Meta:
         model = Store
@@ -353,6 +355,8 @@ class StoreDetailSerializer(serializers.ModelSerializer):
             "store_hours",
             "current_status",
             "delivery_status",
+            "fssai",
+            "gst",
             "is_active",
             "published_at",
             "created_at",
@@ -430,6 +434,18 @@ class StoreDetailSerializer(serializers.ModelSerializer):
             return None
 
         return get_delivery_status(store_settings)
+
+    def get_fssai(self, obj):
+        try:
+            return obj.settings.fssai
+        except Store.settings.RelatedObjectDoesNotExist:
+            return ""
+
+    def get_gst(self, obj):
+        try:
+            return obj.settings.gst
+        except Store.settings.RelatedObjectDoesNotExist:
+            return ""
 
 
 class StoreListSerializer(StoreDetailSerializer):
@@ -531,6 +547,34 @@ class StoreSettingsUpdateSerializer(StoreSettingsSerializer):
             "is_scheduled_delivery_temporarily_disabled",
             "has_available_fulfillment_method",
         )
+
+
+class StoreCustomerSettingsSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(source="customer_id", read_only=True)
+    full_name = serializers.CharField(source="customer.full_name", read_only=True)
+    phone = serializers.CharField(source="customer.phone", read_only=True)
+    email = serializers.EmailField(source="customer.email", read_only=True)
+
+    class Meta:
+        model = StoreCustomer
+        fields = (
+            "id",
+            "full_name",
+            "phone",
+            "email",
+            "is_active",
+            "scheduled_min_order_amount",
+            "scheduled_delivery_charge",
+            "express_min_order_amount",
+            "express_delivery_charge",
+            "pickup_min_order_amount",
+            "cancellation_percentage",
+            "settings",
+            "note",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
 
 
 class MyStoreDetailSerializer(StoreDetailSerializer):

@@ -39,5 +39,10 @@ urlpatterns = [
         views.store_settings_detail,
         name="store-settings-detail",
     ),
+    path(
+        "stores/<slug:store_slug>/settings/<str:user_identifier>/",
+        views.store_customer_settings_detail,
+        name="store-customer-settings-detail",
+    ),
     path("stores/<str:store_slug>/", views.store_detail, name="store-detail"),
 ]

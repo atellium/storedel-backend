@@ -257,6 +257,15 @@ class StoreSettingsAdmin(admin.ModelAdmin):
                 "classes": ("collapse",),
             },
         ),
+        (
+            "Licencing",
+            {
+                "fields": (
+                    "fssai",
+                    "gst",
+                )
+            },
+        ),
     )
 
     @admin.display(
