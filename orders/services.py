@@ -13,7 +13,7 @@ from notifications.tasks import send_store_owner_order_placed_notification
 from orders.models import Order, OrderItem
 from products.models import Product
 from products.services import paginate_queryset
-from stores.models import Store
+from stores.models import Store, StoreCustomer
 
 
 User = get_user_model()
@@ -103,24 +103,74 @@ def list_store_orders(user, store_slug, filters):
 def list_store_customers(user, store_slug):
     store = get_user_store(user, store_slug)
     return (
-        User.objects.filter(orders__store=store)
+        StoreCustomer.objects.filter(store=store)
+        .select_related("customer", "store")
         .annotate(
             order_count=Count(
-                "orders",
-                filter=Q(orders__store=store),
+                "customer__orders",
+                filter=Q(customer__orders__store=store),
                 distinct=True,
             ),
             last_order_at=Max(
-                "orders__created_at",
-                filter=Q(orders__store=store),
+                "customer__orders__created_at",
+                filter=Q(customer__orders__store=store),
             ),
             total_amount=Sum(
-                "orders__total_amount",
-                filter=Q(orders__store=store),
+                "customer__orders__total_amount",
+                filter=Q(customer__orders__store=store),
             ),
         )
-        .order_by("-last_order_at", "full_name", "id")
+        .order_by("-last_order_at", "customer__full_name", "id")
     )
+
+
+def get_store_customer(user, store_slug, customer_id):
+    store = get_user_store(user, store_slug)
+    store_customer = (
+        StoreCustomer.objects.filter(
+            store=store,
+            customer_id=customer_id,
+        )
+        .select_related("customer", "store")
+        .annotate(
+            order_count=Count(
+                "customer__orders",
+                filter=Q(customer__orders__store=store),
+                distinct=True,
+            ),
+            last_order_at=Max(
+                "customer__orders__created_at",
+                filter=Q(customer__orders__store=store),
+            ),
+            total_amount=Sum(
+                "customer__orders__total_amount",
+                filter=Q(customer__orders__store=store),
+            ),
+        )
+        .first()
+    )
+    if store_customer is None:
+        raise NotFound("Store customer not found.")
+    return store_customer
+
+
+def update_store_customer(user, store_slug, customer_id, data):
+    store_customer = get_store_customer(user, store_slug, customer_id)
+
+    for field, value in data.items():
+        setattr(store_customer, field, value)
+
+    try:
+        store_customer.full_clean()
+        store_customer.save(
+            update_fields=[
+                *data.keys(),
+                "updated_at",
+            ]
+        )
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(exc.message_dict) from exc
+    return get_store_customer(user, store_slug, customer_id)
 
 
 def get_order_for_response(order):
@@ -240,6 +290,8 @@ def create_order_from_cart(
             customer_note,
         )
 
+    ensure_store_customer(cart.store, user)
+
     for cart_item in cart_items:
         add_cart_item_to_order(
             order,
@@ -258,6 +310,14 @@ def create_order_from_cart(
     )
 
     return order
+
+
+def ensure_store_customer(store, customer):
+    store_customer, _ = StoreCustomer.objects.get_or_create(
+        store=store,
+        customer=customer,
+    )
+    return store_customer
 
 
 def update_existing_order_checkout_fields(

@@ -1,4 +1,5 @@
 import math
+import uuid
 
 import pygeohash as pgh
 from django.shortcuts import render
@@ -11,13 +12,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Count, Q
 
-from stores.models import SavedStore, Store, StoreSettings
+from stores.models import SavedStore, Store, StoreCustomer, StoreSettings
 from stores.serializers import (
     MyStoreDetailSerializer,
     NearbyStoreListQuerySerializer,
     NearbyStoreListSerializer,
     SavedStoreSerializer,
     StoreDetailSerializer,
+    StoreCustomerSettingsSerializer,
     StoreSettingsUpdateSerializer,
     StoreSettingsSerializer,
     StoreListQuerySerializer,
@@ -362,6 +364,46 @@ def store_settings_detail(request, store_slug):
         {
             "result": StoreSettingsSerializer(
                 store_settings,
+                context={"request": request},
+            ).data
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def store_customer_settings_detail(request, store_slug, user_identifier):
+    store = Store.objects.filter(slug=store_slug, is_active=True).first()
+    if store is None:
+        raise NotFound("Store not found.")
+
+    customer_filter = Q(customer__phone=user_identifier)
+    try:
+        customer_id = uuid.UUID(str(user_identifier))
+    except ValueError:
+        customer_id = None
+
+    if customer_id is not None:
+        customer_filter |= Q(customer_id=customer_id)
+
+    store_customer = (
+        StoreCustomer.objects.filter(store=store)
+        .filter(customer_filter)
+        .select_related("customer", "store")
+        .first()
+    )
+    if store_customer is None:
+        raise NotFound("Store customer settings not found.")
+
+    is_store_owner = store.owner_id == request.user.id
+    is_same_customer = store_customer.customer_id == request.user.id
+    if not (is_store_owner or is_same_customer):
+        raise NotFound("Store customer settings not found.")
+
+    return Response(
+        {
+            "result": StoreCustomerSettingsSerializer(
+                store_customer,
                 context={"request": request},
             ).data
         }

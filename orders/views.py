@@ -12,6 +12,7 @@ from orders.serializers import (
     OrderSerializer,
     StoreCustomerListQuerySerializer,
     StoreCustomerSerializer,
+    StoreCustomerUpdateSerializer,
     StoreOrderSerializer,
     StoreOrderUpdateSerializer,
     OrderUpdateSerializer,
@@ -52,6 +53,37 @@ def my_store_customer_list(request, store_slug):
             "count": count,
             "pagination": pagination,
             "results": StoreCustomerSerializer(page, many=True).data,
+        }
+    )
+
+
+@api_view(["GET", "PATCH"])
+@permission_classes([IsAuthenticated])
+@transaction.atomic
+def my_store_customer_detail(request, store_slug, customer_id):
+    if request.method == "GET":
+        store_customer = services.get_store_customer(
+            request.user,
+            store_slug,
+            customer_id,
+        )
+        return Response(
+            {
+                "customer": StoreCustomerSerializer(store_customer).data,
+            }
+        )
+
+    serializer = StoreCustomerUpdateSerializer(data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    store_customer = services.update_store_customer(
+        request.user,
+        store_slug,
+        customer_id,
+        serializer.validated_data,
+    )
+    return Response(
+        {
+            "customer": StoreCustomerSerializer(store_customer).data,
         }
     )
 
